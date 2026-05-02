@@ -27,9 +27,12 @@ function getTrayIcon(): Electron.NativeImage {
   const dir = trayAssetDir();
   const icon = nativeImage.createFromBuffer(fs.readFileSync(path.join(dir, 'bu-logo-16.png')));
 
-  // Add the @2x representation before marking as a template so macOS can adapt it in light/dark menu bars.
+  // Add the @2x representation for HiDPI displays.
   icon.addRepresentation({ scaleFactor: 2, buffer: fs.readFileSync(path.join(dir, 'bu-logo-32.png')) });
-  icon.setTemplateImage(true);
+  // macOS: mark as template so the icon adapts to light/dark menu bars.
+  if (process.platform === 'darwin') {
+    icon.setTemplateImage(true);
+  }
 
   return icon;
 }
@@ -183,10 +186,10 @@ function buildTrayMenu(sessionManager: SessionManager): Menu {
   template.push(
     { type: 'separator' },
     { label: 'New Agent', accelerator: getGlobalCmdbarAccelerator(), click: openNewAgent },
-    { label: 'Settings', accelerator: 'Command+,', click: openSettings },
+    { label: 'Settings', accelerator: 'CommandOrControl+,', click: openSettings },
     { type: 'separator' },
     { label: 'Open App', click: openHub },
-    { label: 'Quit Browser Use', accelerator: 'Command+Q', click: () => app.quit() },
+    { label: 'Quit Browser Use', accelerator: 'CommandOrControl+Q', click: () => app.quit() },
   );
 
   return Menu.buildFromTemplate(template);

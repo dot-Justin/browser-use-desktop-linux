@@ -223,7 +223,7 @@ export function createLogsWindow(): BrowserWindow {
     roundedCorners: true,
     skipTaskbar: true,
     show: false,
-    type: 'panel',
+    ...(process.platform === 'darwin' && { type: 'panel' as const }),
     webPreferences: {
       preload: path.join(__dirname, 'logs.js'),
       contextIsolation: true,

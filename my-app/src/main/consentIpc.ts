@@ -21,6 +21,12 @@ export function registerConsentHandlers(): void {
         await shell.openExternal('x-apple.systempreferences:com.apple.preference.notifications');
       } else if (process.platform === 'win32') {
         await shell.openExternal('ms-settings:notifications');
+      } else if (process.platform === 'linux') {
+        // Best-effort: try common DE notification settings
+        const { execFile } = await import('child_process');
+        execFile('xdg-open', ['settings://notifications'], (err) => {
+          if (err) mainLogger.debug('settings.linux-notifications-fallback', { error: err.message });
+        });
       }
       return { ok: true };
     } catch (err) {

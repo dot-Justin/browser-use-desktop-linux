@@ -2,8 +2,13 @@
 # Patches the dev-mode Electron binary so the dock and menu bar show
 # "BrowserUse" / "Browser Use" instead of "Electron".
 #
-# Uses BrowserUse.app (no space) because Node's child_process.spawn
-# cannot handle spaces in executable paths.
+# macOS-only: on Linux the Electron binary lives at node_modules/electron/dist/electron
+# and doesn't use .app bundles or Info.plist. This script is a no-op on non-macOS.
+
+if [ "$(uname)" != "Darwin" ]; then
+  echo "[patch-electron-plist] Skipping — not macOS"
+  exit 0
+fi
 
 ELECTRON_DIR="node_modules/electron/dist"
 OLD_APP="$ELECTRON_DIR/Electron.app"

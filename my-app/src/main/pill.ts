@@ -143,10 +143,13 @@ export function createPillWindow(): BrowserWindow {
     roundedCorners: true,
     skipTaskbar: true,
     show: false,
-    vibrancy: 'hud',
-    visualEffectState: 'active',
-    // Ensure it appears above full-screen apps on macOS
-    type: 'panel',
+    // macOS-only: vibrancy blur, visual effect state, and panel type for
+    // above-fullscreen z-order. On Linux these are ignored / unsupported.
+    ...(process.platform === 'darwin' && {
+      vibrancy: 'hud' as const,
+      visualEffectState: 'active' as const,
+      type: 'panel' as const,
+    }),
     webPreferences: {
       preload: path.join(__dirname, 'pill.js'),
       contextIsolation: true,

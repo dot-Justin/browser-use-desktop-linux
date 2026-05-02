@@ -86,7 +86,7 @@ export function createShellWindow(opts?: ShellWindowOptions): BrowserWindow {
     minWidth: MIN_WIDTH,
     minHeight: MIN_HEIGHT,
     titleBarStyle: 'hidden',
-    trafficLightPosition: { x: 16, y: 16 },
+    ...(process.platform === 'darwin' && { trafficLightPosition: { x: 16, y: 16 } }),
     backgroundColor: incognito ? '#1a1a2e' : '#0d0d0d',
     webPreferences: {
       preload: path.join(__dirname, 'shell.js'),

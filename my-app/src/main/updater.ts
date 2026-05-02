@@ -179,7 +179,8 @@ function configureWindowsAutoUpdater(autoUpdater: WindowsAutoUpdater): UpdateChe
 }
 
 export function supportsUpdates(platform = process.platform): boolean {
-  return platform === 'darwin' || platform === 'win32';
+  // electron-updater supports macOS, Windows, and Linux (AppImage).
+  return platform === 'darwin' || platform === 'win32' || platform === 'linux';
 }
 
 /**
@@ -231,7 +232,7 @@ export async function initUpdater(): Promise<void> {
       console.warn('[updater] electron-updater failed to load — auto-update disabled:', (err as Error)?.message ?? err);
       return;
     }
-    checkForUpdates = configureMacAutoUpdater(autoUpdater);
+    checkForUpdates = configureMacAutoUpdater(autoUpdater); // macOS + Linux
   }
 
   initialized = true;

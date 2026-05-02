@@ -15,7 +15,12 @@ tasks:
     dir: "{{.APP_DIR}}"
     cmds:
       - yarn install
-      - test -d node_modules/electron/dist/Electron.app || test -d node_modules/electron/dist/BrowserUse.app || node node_modules/electron/install.js
+      - |
+        if [ "$(uname)" = "Darwin" ]; then
+          test -d node_modules/electron/dist/Electron.app || test -d node_modules/electron/dist/BrowserUse.app || node node_modules/electron/install.js
+        else
+          test -f node_modules/electron/dist/electron || node node_modules/electron/install.js
+        fi
       - bash scripts/patch-electron-plist.sh
       - npm start
 
@@ -24,7 +29,12 @@ tasks:
     dir: "{{.APP_DIR}}"
     cmds:
       - yarn install
-      - test -d node_modules/electron/dist/Electron.app || test -d node_modules/electron/dist/BrowserUse.app || node node_modules/electron/install.js
+      - |
+        if [ "$(uname)" = "Darwin" ]; then
+          test -d node_modules/electron/dist/Electron.app || test -d node_modules/electron/dist/BrowserUse.app || node node_modules/electron/install.js
+        else
+          test -f node_modules/electron/dist/electron || node node_modules/electron/install.js
+        fi
       - bash scripts/patch-electron-plist.sh
       - npm run start:clean
 
@@ -57,7 +67,7 @@ tasks:
     silent: true
     cmds:
       - |
-        LOG_DIR="${AGB_LOG_DIR:-$HOME/Library/Application Support/Browser Use/logs}"
+        LOG_DIR="${AGB_LOG_DIR:-$(if [ "$(uname)" = "Darwin" ]; then echo "$HOME/Library/Application Support/Browser Use/logs"; else echo "${XDG_CONFIG_HOME:-$HOME/.config}/Browser Use/logs"; fi)}"
         if ! ls "$LOG_DIR"/*.log >/dev/null 2>&1; then
           echo "No logs found in $LOG_DIR"
           exit 1
@@ -74,7 +84,7 @@ tasks:
           echo "Set SERVICE, e.g. task logs:service SERVICE=browser"
           exit 1
         fi
-        LOG_DIR="${AGB_LOG_DIR:-$HOME/Library/Application Support/Browser Use/logs}"
+        LOG_DIR="${AGB_LOG_DIR:-$(if [ "$(uname)" = "Darwin" ]; then echo "$HOME/Library/Application Support/Browser Use/logs"; else echo "${XDG_CONFIG_HOME:-$HOME/.config}/Browser Use/logs"; fi)}"
         FILE="$LOG_DIR/$SERVICE.log"
         if [ ! -f "$FILE" ]; then
           echo "No log file found: $FILE"
@@ -115,7 +125,7 @@ tasks:
     silent: true
     cmds:
       - |
-        LOG_DIR="${AGB_LOG_DIR:-$HOME/Library/Application Support/Browser Use/logs}"
+        LOG_DIR="${AGB_LOG_DIR:-$(if [ "$(uname)" = "Darwin" ]; then echo "$HOME/Library/Application Support/Browser Use/logs"; else echo "${XDG_CONFIG_HOME:-$HOME/.config}/Browser Use/logs"; fi)}"
         FILE="$LOG_DIR/browser.log"
         if [ ! -f "$FILE" ]; then
           echo "No log file found: $FILE"
@@ -128,7 +138,7 @@ tasks:
     silent: true
     cmds:
       - |
-        LOG_DIR="${AGB_LOG_DIR:-$HOME/Library/Application Support/Browser Use/logs}"
+        LOG_DIR="${AGB_LOG_DIR:-$(if [ "$(uname)" = "Darwin" ]; then echo "$HOME/Library/Application Support/Browser Use/logs"; else echo "${XDG_CONFIG_HOME:-$HOME/.config}/Browser Use/logs"; fi)}"
         FILE="$LOG_DIR/browser.log"
         if [ ! -f "$FILE" ]; then
           echo "No log file found: $FILE"
@@ -146,7 +156,7 @@ tasks:
           echo "Set SESSION_ID, e.g. task logs:session SESSION_ID=abc123"
           exit 1
         fi
-        LOG_DIR="${AGB_LOG_DIR:-$HOME/Library/Application Support/Browser Use/logs}"
+        LOG_DIR="${AGB_LOG_DIR:-$(if [ "$(uname)" = "Darwin" ]; then echo "$HOME/Library/Application Support/Browser Use/logs"; else echo "${XDG_CONFIG_HOME:-$HOME/.config}/Browser Use/logs"; fi)}"
         if ! ls "$LOG_DIR"/*.log >/dev/null 2>&1; then
           echo "No logs found in $LOG_DIR"
           exit 1

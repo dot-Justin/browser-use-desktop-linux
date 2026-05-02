@@ -127,26 +127,52 @@ export function registerOnboardingHandlers(deps: OnboardingHandlerDeps): void {
   });
 
   ipcMain.handle('onboarding:open-claude-login-terminal', async () => {
-    const script = `tell application "Terminal"\nactivate\ndo script "claude auth login --claudeai"\nend tell`;
     return new Promise<{ opened: boolean; error?: string }>((resolve) => {
-      if (process.platform !== 'darwin') {
-        // Non-macOS fallback: just open the docs URL.
-        shell.openExternal('https://code.claude.com/docs/en/authentication').catch(() => {});
-        resolve({ opened: false, error: 'macOS only — follow docs to run `claude auth login --claudeai`' });
-        return;
-      }
-      const osa = spawn('osascript', ['-e', script]);
-      let stderrBuf = '';
-      osa.stderr.on('data', (d) => (stderrBuf += String(d)));
-      osa.on('close', (code) => {
-        if (code === 0) {
-          mainLogger.info('onboardingHandlers.openClaudeLoginTerminal.ok');
-          resolve({ opened: true });
-        } else {
-          mainLogger.warn('onboardingHandlers.openClaudeLoginTerminal.failed', { code, stderr: stderrBuf });
-          resolve({ opened: false, error: stderrBuf.trim() || `osascript exit ${code}` });
+      if (process.platform === 'darwin') {
+        const script = `tell application "Terminal"\nactivate\ndo script "claude auth login --claudeai"\nend tell`;
+        const osa = spawn('osascript', ['-e', script]);
+        let stderrBuf = '';
+        osa.stderr.on('data', (d) => (stderrBuf += String(d)));
+        osa.on('close', (code) => {
+          if (code === 0) {
+            mainLogger.info('onboardingHandlers.openClaudeLoginTerminal.ok');
+            resolve({ opened: true });
+          } else {
+            mainLogger.warn('onboardingHandlers.openClaudeLoginTerminal.failed', { code, stderr: stderrBuf });
+            resolve({ opened: false, error: stderrBuf.trim() || `osascript exit ${code}` });
+          }
+        });
+      } else if (process.platform === 'linux') {
+        // Try common Linux terminal emulators in preference order.
+        const terminals = [
+          { cmd: 'kitty', args: ['-e', 'bash', '-c', 'claude auth login --claudeai; exec bash'] },
+          { cmd: 'gnome-terminal', args: ['--', 'bash', '-c', 'claude auth login --claudeai; exec bash'] },
+          { cmd: 'konsole', args: ['-e', 'bash', '-c', 'claude auth login --claudeai; exec bash'] },
+          { cmd: 'xfce4-terminal', args: ['-e', 'bash -c "claude auth login --claudeai; exec bash"'] },
+          { cmd: 'alacritty', args: ['-e', 'bash', '-c', 'claude auth login --claudeai; exec bash'] },
+          { cmd: 'foot', args: ['-e', 'bash', '-c', 'claude auth login --claudeai; exec bash'] },
+          { cmd: 'xterm', args: ['-e', 'bash', '-c', 'claude auth login --claudeai; exec bash'] },
+        ];
+        const { execFileSync } = require('child_process');
+        let launched = false;
+        for (const t of terminals) {
+          try {
+            execFileSync('which', [t.cmd], { stdio: 'ignore' });
+            spawn(t.cmd, t.args, { detached: true, stdio: 'ignore' }).unref();
+            mainLogger.info('onboardingHandlers.openClaudeLoginTerminal.linux', { terminal: t.cmd });
+            launched = true;
+            resolve({ opened: true });
+            break;
+          } catch { /* terminal not found, try next */ }
         }
-      });
+        if (!launched) {
+          shell.openExternal('https://code.claude.com/docs/en/authentication').catch(() => {});
+          resolve({ opened: false, error: 'No supported terminal emulator found — run `claude auth login --claudeai` manually' });
+        }
+      } else {
+        shell.openExternal('https://code.claude.com/docs/en/authentication').catch(() => {});
+        resolve({ opened: false, error: 'Unsupported platform — follow docs to run `claude auth login --claudeai`' });
+      }
     });
   });
 

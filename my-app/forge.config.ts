@@ -101,7 +101,9 @@ const config: ForgeConfig = {
     // App metadata
     appBundleId: 'com.browser-use.desktop',
     appCategoryType: 'public.app-category.productivity',
-    icon: 'assets/icon',   // Forge appends .icns on macOS automatically
+    // Forge appends .icns on macOS, .ico on Windows automatically.
+    // On Linux, point to the .png directly for the desktop entry icon.
+    icon: process.platform === 'linux' ? 'assets/icon.png' : 'assets/icon',
   },
 
   rebuildConfig: {},
@@ -178,9 +180,22 @@ const config: ForgeConfig = {
       ...(WINDOWS_SIGN_WITH_PARAMS ? { signWithParams: WINDOWS_SIGN_WITH_PARAMS } : {}),
     }),
 
-    // Linux: deb + rpm (unchanged from scaffold)
-    new MakerDeb({}),
-    new MakerRpm({}),
+    // Linux: deb + rpm
+    new MakerDeb({
+      options: {
+        icon: 'assets/icon.png',
+        categories: ['Utility', 'Development'],
+        section: 'utils',
+        depends: ['libsecret-1-0'],  // required by keytar for credential storage
+      },
+    }),
+    new MakerRpm({
+      options: {
+        icon: 'assets/icon.png',
+        categories: ['Utility', 'Development'],
+        requires: ['libsecret'],
+      },
+    }),
   ],
 
   plugins: [
