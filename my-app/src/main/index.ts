@@ -107,9 +107,26 @@ import { registerChannelHandlers, unregisterChannelHandlers } from './channels/i
 import { initUpdater, stopUpdater } from './updater';
 
 // ---------------------------------------------------------------------------
+// Linux: prevent EPIPE on stdout/stderr from crashing the process.
+// When launched from a desktop entry or process manager, the parent may
+// close its end of the pipe. Node treats broken-pipe writes as uncaught
+// exceptions by default, which kills the app.
+// ---------------------------------------------------------------------------
+process.stdout?.on?.('error', (err: NodeJS.ErrnoException) => {
+  if (err.code !== 'EPIPE') throw err;
+});
+process.stderr?.on?.('error', (err: NodeJS.ErrnoException) => {
+  if (err.code !== 'EPIPE') throw err;
+});
+
+// ---------------------------------------------------------------------------
 // Crash telemetry: catch unhandled errors before anything else
 // ---------------------------------------------------------------------------
 process.on('uncaughtException', (err) => {
+  // EPIPE on stdout/stderr is harmless — it means the parent process (e.g.
+  // electron-forge, a desktop launcher) closed the pipe. Logging it would
+  // just trigger another EPIPE in an infinite cascade. Silently ignore.
+  if ((err as NodeJS.ErrnoException).code === 'EPIPE') return;
   mainLogger.error('main.uncaughtException', {
     error: err.message,
     stack: err.stack,
