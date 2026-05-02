@@ -8,7 +8,7 @@ Desktop app for running AI browser automation agents. Each agent gets its own sa
 task up    # Install deps, build agent image, start the app
 ```
 
-On first run, the onboarding flow walks through Google OAuth and API key setup (stored in OS keychain via keytar).
+On first run, the onboarding flow walks through provider setup. API keys are stored in the OS keychain via keytar.
 
 ## How it works
 
@@ -18,7 +18,15 @@ On first run, the onboarding flow walks through Google OAuth and API key setup (
 4. Watch the agent work in real time, or take over the browser to intervene
 5. Send follow-up prompts to running or stopped sessions
 
-The agent engine runs in-process using Chrome DevTools Protocol to control each browser context. Sessions persist to SQLite so conversation history survives restarts.
+Agent engines run as subprocess adapters and control each browser context through the Browser Use harness and Chrome DevTools Protocol. Sessions persist to SQLite so conversation history survives restarts.
+
+Supported engines:
+
+- **Claude Code** — Claude Code CLI subscription auth or Anthropic API key
+- **Codex** — Codex CLI subscription auth or OpenAI API key
+- **OpenRouter** — OpenRouter API key and model ID, executed through a zero-dependency Node.js shim
+
+OpenRouter requires a system `node` binary on `PATH` at runtime because it has no vendor CLI.
 
 ## Directory structure
 
@@ -31,12 +39,9 @@ src/
       SessionManager.ts    # Session lifecycle, stuck detection, event relay
       SessionDb.ts         # SQLite persistence (sessions, events, conversation history)
       BrowserPool.ts       # Sandboxed WebContentsView pool
-    hl/                    # In-process agent engine
-      agent.ts             # Agent loop (prompt -> tools -> result)
-      context.ts           # CDP browser context creation
-      tools.ts             # Agent tool definitions
-      runtime.ts           # Tool execution runtime
-      cdp.ts               # Chrome DevTools Protocol helpers
+    hl/                    # Harness and pluggable engine adapters
+      engines/             # Claude Code, Codex, OpenRouter adapters
+      harness.ts           # Browser automation harness files
     channels/              # Inbound message channels
       WhatsAppAdapter.ts   # WhatsApp Web bridge
       ChannelRouter.ts     # Routes inbound messages to agent sessions
@@ -106,6 +111,6 @@ All commands run from the repo root via [Task](https://taskfile.dev).
 - **TypeScript 5.4**
 - **SQLite** (better-sqlite3) — session and conversation persistence
 - **CDP** — Chrome DevTools Protocol for agent browser control
-- **Anthropic SDK** — AI agent integration
+- **Claude Code, Codex, OpenRouter** — pluggable agent engine integrations
 - **keytar** — OS keychain (API key storage)
 - **Electron Forge 7** — packaging (DMG, DEB, RPM, ZIP, Squirrel)

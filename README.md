@@ -78,6 +78,9 @@ task up
 
 - **Anthropic** — Claude Code Subscription or API Key
 - **Codex** — ChatGPT Subscription or API Key
+- **OpenRouter** — API Key plus any model ID from `openrouter.ai/models`
+
+OpenRouter support uses the OpenAI-compatible HTTP API through a bundled Node.js shim. It requires a system `node` binary on `PATH` at runtime, in addition to the OpenRouter API key and model configured in Settings.
 
 ## Channels
 
