@@ -81,6 +81,7 @@ export function chromeBinaryCandidates(opts: ChromeBinaryOptions = {}): string[]
     '/usr/bin/chromium',
     '/usr/bin/chromium-browser',
     '/snap/bin/chromium',
+    '/usr/bin/helium-browser',  // Helium browser (Chromium fork)
   ];
 }
 

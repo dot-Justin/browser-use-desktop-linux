@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Name=Browser Use
+GenericName=AI Browser Agent
+Comment=Run a team of browser agents on your desktop
+Exec=browser-use
+Terminal=false
+Type=Application
+Icon=browser-use
+Categories=Utility;Development;
+StartupNotify=true
+StartupWMClass=browser-use-desktop

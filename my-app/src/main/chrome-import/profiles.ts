@@ -47,6 +47,7 @@ export function getChromeUserDataDirCandidates(opts: ChromePathOptions = {}): st
     pathMod.join(configHome, 'google-chrome-beta'),
     pathMod.join(configHome, 'google-chrome-unstable'),
     pathMod.join(configHome, 'chromium'),
+    pathMod.join(configHome, 'net.imput.helium'),  // Helium browser (Chromium fork)
   ];
 }
 
