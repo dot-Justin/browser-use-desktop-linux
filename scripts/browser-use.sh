@@ -50,13 +50,17 @@ fi
 log "Starting Browser Use from $APP_DIR"
 
 # Terminal: run interactively with HMR.
-# Desktop launcher: background the process and detach from the launcher.
-# The app handles EPIPE gracefully (see src/main/index.ts) so it survives
-# the parent pipe closing.
+# Desktop launcher: use systemd-run to give the process its own scope.
+# Without this, Rofi/Wofi kill the entire process group on exit,
+# taking electron-forge and its Vite servers + Electron child with it.
 if [ -t 0 ]; then
   exec npx electron-forge start 2>&1
 else
-  nohup npx electron-forge start </dev/null >> "$LOG_FILE" 2>&1 &
-  disown
-  log "Launched in background (PID $!)"
+  # setsid detaches from Rofi's process group so it survives Rofi exit.
+  # Environment (Wayland, D-Bus, etc.) is inherited automatically.
+  # electron-forge reads stdin and exits on EOF, so we pipe from
+  # `sleep infinity` to keep stdin open (instead of /dev/null).
+  setsid bash -c "cd '$APP_DIR' && sleep infinity | exec npx electron-forge start >>'$LOG_FILE' 2>&1" &
+  log "Launched via setsid (pid=$!)"
+  exit 0
 fi
