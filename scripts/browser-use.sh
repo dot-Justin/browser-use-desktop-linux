@@ -47,17 +47,16 @@ if [ ! -d node_modules ]; then
   }
 fi
 
-# When launched from a terminal, use electron-forge for dev servers + HMR.
-# When launched from a desktop entry (no TTY), run electron directly to
-# avoid EPIPE crashes — electron-forge exits after spawning electron,
-# breaking the inherited stdio pipe, which triggers an uncaught exception
-# cascade in the app's logger.
+log "Starting Browser Use from $APP_DIR"
+
+# Terminal: run interactively with HMR.
+# Desktop launcher: background the process and detach from the launcher.
+# The app handles EPIPE gracefully (see src/main/index.ts) so it survives
+# the parent pipe closing.
 if [ -t 0 ]; then
-  log "Terminal detected — using electron-forge start"
   exec npx electron-forge start 2>&1
 else
-  log "No terminal (desktop launcher) — running Electron directly"
-  nohup ./node_modules/.bin/electron . </dev/null >> "$LOG_FILE" 2>&1 &
+  nohup npx electron-forge start </dev/null >> "$LOG_FILE" 2>&1 &
   disown
-  log "Electron launched (PID $!)"
+  log "Launched in background (PID $!)"
 fi
