@@ -17,6 +17,11 @@ interface OpenAiStatus {
   present: boolean;
   masked?: string;
 }
+interface OpenRouterStatus {
+  present: boolean;
+  masked?: string;
+  model?: string;
+}
 interface CodexStatus {
   installed: boolean;
   authed: boolean;
@@ -27,6 +32,8 @@ interface CodexStatus {
 interface ConnectionsPaneProps {
   embedded?: boolean;
 }
+
+const DEFAULT_OPENROUTER_MODEL = 'google/gemini-2.5-flash';
 
 export function ConnectionsPane({ embedded }: ConnectionsPaneProps): React.ReactElement {
   const [waStatus, setWaStatus] = useState<WaStatus>('disconnected');
@@ -46,7 +53,6 @@ export function ConnectionsPane({ embedded }: ConnectionsPaneProps): React.React
   }, []);
 
   const [authStatus, setAuthStatus] = useState<AuthStatus>({ type: 'none' });
-  const [claudeCodeAvailable, setClaudeCodeAvailable] = useState<{ available: boolean; subscriptionType?: string | null }>({ available: false });
   // True while we've spawned `claude auth login --claudeai` and are waiting
   // for the user to complete the OAuth in their browser. Drives the card's
   // 'Waiting for login…' subtitle + button-disabled state.
@@ -62,6 +68,13 @@ export function ConnectionsPane({ embedded }: ConnectionsPaneProps): React.React
   const [openaiKeyStatus, setOpenaiKeyStatus] = useState<'idle' | 'testing' | 'ok' | 'error'>('idle');
   const [openaiError, setOpenaiError] = useState<string | null>(null);
 
+  const [openrouterStatus, setOpenrouterStatus] = useState<OpenRouterStatus>({ present: false });
+  const [openrouterEditing, setOpenrouterEditing] = useState(false);
+  const [openrouterDraft, setOpenrouterDraft] = useState('');
+  const [openrouterModelDraft, setOpenrouterModelDraft] = useState(DEFAULT_OPENROUTER_MODEL);
+  const [openrouterKeyStatus, setOpenrouterKeyStatus] = useState<'idle' | 'testing' | 'ok' | 'error'>('idle');
+  const [openrouterError, setOpenrouterError] = useState<string | null>(null);
+
   const [codexStatus, setCodexStatus] = useState<CodexStatus>({ installed: false, authed: false });
   const [codexWaiting, setCodexWaiting] = useState(false);
   // Surfaced from the codex login PTY when --device-auth is in play. Drives
@@ -75,8 +88,6 @@ export function ConnectionsPane({ embedded }: ConnectionsPaneProps): React.React
     if (!api?.settings?.apiKey) return;
     const status = await api.settings.apiKey.getStatus();
     setAuthStatus(status);
-    const cc = await api.settings.claudeCode?.available();
-    if (cc) setClaudeCodeAvailable(cc);
   }, []);
 
   const refreshOpenai = useCallback(async () => {
@@ -87,6 +98,17 @@ export function ConnectionsPane({ embedded }: ConnectionsPaneProps): React.React
       setOpenaiStatus(s);
     } catch (err) {
       console.error('[connections] refreshOpenai failed', err);
+    }
+  }, []);
+
+  const refreshOpenRouter = useCallback(async () => {
+    const api = window.electronAPI;
+    if (!api?.settings?.openrouterKey) return;
+    try {
+      const s = await api.settings.openrouterKey.getStatus();
+      setOpenrouterStatus(s);
+    } catch (err) {
+      console.error('[connections] refreshOpenRouter failed', err);
     }
   }, []);
 
@@ -172,8 +194,9 @@ export function ConnectionsPane({ embedded }: ConnectionsPaneProps): React.React
   useEffect(() => {
     refreshKey();
     refreshOpenai();
+    refreshOpenRouter();
     refreshCodex();
-  }, [refreshKey, refreshOpenai, refreshCodex]);
+  }, [refreshKey, refreshOpenai, refreshOpenRouter, refreshCodex]);
 
   // Periodic refresh while the pane is mounted — catches external state
   // changes (user runs `claude auth logout` in a terminal, codex token
@@ -183,10 +206,11 @@ export function ConnectionsPane({ embedded }: ConnectionsPaneProps): React.React
     const id = setInterval(() => {
       refreshKey();
       refreshOpenai();
+      refreshOpenRouter();
       refreshCodex();
     }, 5000);
     return () => clearInterval(id);
-  }, [refreshKey, refreshOpenai, refreshCodex]);
+  }, [refreshKey, refreshOpenai, refreshOpenRouter, refreshCodex]);
 
   // Poll codex status while user completes the codex OAuth flow. Tighter
   // interval than the 5s panel refresh so the UI flips to "Signed in" the
@@ -241,6 +265,36 @@ export function ConnectionsPane({ embedded }: ConnectionsPaneProps): React.React
     setOpenaiError(null);
     await refreshOpenai();
   }, [refreshOpenai]);
+
+  const handleSaveOpenRouterKey = useCallback(async () => {
+    const api = window.electronAPI;
+    if (!api?.settings?.openrouterKey) return;
+    const key = openrouterDraft.trim();
+    const model = openrouterModelDraft.trim();
+    if (!key || !model) return;
+    setOpenrouterKeyStatus('testing');
+    setOpenrouterError(null);
+    const test = await api.settings.openrouterKey.test(key, model);
+    if (!test.success) {
+      setOpenrouterKeyStatus('error');
+      setOpenrouterError(test.error ?? 'Key or model rejected by OpenRouter');
+      return;
+    }
+    await api.settings.openrouterKey.save(key, model);
+    setOpenrouterKeyStatus('ok');
+    setOpenrouterDraft('');
+    setOpenrouterEditing(false);
+    await refreshOpenRouter();
+  }, [openrouterDraft, openrouterModelDraft, refreshOpenRouter]);
+
+  const handleDeleteOpenRouterKey = useCallback(async () => {
+    const api = window.electronAPI;
+    if (!api?.settings?.openrouterKey) return;
+    await api.settings.openrouterKey.delete();
+    setOpenrouterKeyStatus('idle');
+    setOpenrouterError(null);
+    await refreshOpenRouter();
+  }, [refreshOpenRouter]);
 
   const handleCodexLogin = useCallback(async (opts?: { deviceAuth?: boolean }) => {
     const api = window.electronAPI;
@@ -469,6 +523,107 @@ export function ConnectionsPane({ embedded }: ConnectionsPaneProps): React.React
             </button>
             {keyStatus === 'error' && keyError && (
               <span className="conn-card__api-key-error">{keyError}</span>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="conn-card">
+        <div className="conn-card__header">
+          <div className="conn-card__icon conn-card__icon--letter" aria-hidden="true">
+            OR
+          </div>
+          <div className="conn-card__info">
+            <div className="conn-card__title-row">
+              <span className="conn-card__name">OpenRouter</span>
+              <span className={`conn-card__dot ${openrouterStatus.present ? 'conn-card__dot--connected' : 'conn-card__dot--disconnected'}`} />
+            </div>
+            <span className="conn-card__subtitle">
+              {openrouterEditing
+                ? 'Enter a key and model ID — both will be tested before saving'
+                : openrouterStatus.present
+                ? `API key · ${openrouterStatus.masked ?? 'saved'} · ${openrouterStatus.model ?? DEFAULT_OPENROUTER_MODEL}`
+                : 'Not connected · requires system Node.js on PATH'}
+            </span>
+          </div>
+          <div className="conn-card__actions">
+            {!openrouterEditing && !openrouterStatus.present && (
+              <button
+                className="conn-card__btn conn-card__btn--primary"
+                onClick={() => {
+                  setOpenrouterEditing(true);
+                  setOpenrouterDraft('');
+                  setOpenrouterModelDraft(openrouterStatus.model ?? DEFAULT_OPENROUTER_MODEL);
+                  setOpenrouterKeyStatus('idle');
+                  setOpenrouterError(null);
+                }}
+              >
+                Add API key
+              </button>
+            )}
+            {!openrouterEditing && openrouterStatus.present && (
+              <button
+                className="conn-card__btn conn-card__btn--primary"
+                onClick={() => {
+                  setOpenrouterEditing(true);
+                  setOpenrouterDraft('');
+                  setOpenrouterModelDraft(openrouterStatus.model ?? DEFAULT_OPENROUTER_MODEL);
+                  setOpenrouterKeyStatus('idle');
+                  setOpenrouterError(null);
+                }}
+              >
+                Change
+              </button>
+            )}
+            {!openrouterEditing && openrouterStatus.present && (
+              <button className="conn-card__btn conn-card__btn--secondary" onClick={handleDeleteOpenRouterKey}>
+                Sign out
+              </button>
+            )}
+            {openrouterEditing && (
+              <button
+                className="conn-card__btn conn-card__btn--secondary"
+                onClick={() => {
+                  setOpenrouterEditing(false);
+                  setOpenrouterDraft('');
+                  setOpenrouterError(null);
+                  setOpenrouterKeyStatus('idle');
+                }}
+              >
+                Cancel
+              </button>
+            )}
+          </div>
+        </div>
+        {openrouterEditing && (
+          <div className="conn-card__api-key-edit">
+            <input
+              type="password"
+              className="conn-card__api-key-input"
+              placeholder="sk-or-..."
+              value={openrouterDraft}
+              onChange={(e) => { setOpenrouterDraft(e.target.value); setOpenrouterKeyStatus('idle'); setOpenrouterError(null); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleSaveOpenRouterKey(); }}
+              autoFocus
+            />
+            <input
+              type="text"
+              className="conn-card__api-key-input"
+              placeholder={DEFAULT_OPENROUTER_MODEL}
+              value={openrouterModelDraft}
+              onChange={(e) => { setOpenrouterModelDraft(e.target.value); setOpenrouterKeyStatus('idle'); setOpenrouterError(null); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleSaveOpenRouterKey(); }}
+            />
+            <button
+              className="conn-card__btn conn-card__btn--primary"
+              onClick={handleSaveOpenRouterKey}
+              disabled={!openrouterDraft.trim() || !openrouterModelDraft.trim() || openrouterKeyStatus === 'testing'}
+            >
+              {openrouterKeyStatus === 'testing' ? 'Testing...' : 'Save'}
+            </button>
+            <span className="conn-card__api-key-note">Any model ID from openrouter.ai/models</span>
+            {openrouterKeyStatus === 'error' && openrouterError && (
+              <span className="conn-card__api-key-error">{openrouterError}</span>
             )}
           </div>
         )}

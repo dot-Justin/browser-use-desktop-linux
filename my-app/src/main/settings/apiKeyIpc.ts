@@ -15,6 +15,8 @@ import {
   clearAuth,
   saveOpenAIKey,
   deleteOpenAIKey,
+  saveOpenRouterCredentials,
+  deleteOpenRouterCredentials,
   getCredentialStatus,
 } from '../identity/authStore';
 import { probeClaudeAuthStatus } from '../identity/claudeCodeAuth';
@@ -25,6 +27,7 @@ const ANTHROPIC_VERSION = '2023-06-01';
 const TEST_MODEL = 'claude-haiku-4-5-20251001';
 const TEST_TIMEOUT_MS = 8000;
 const OPENAI_MODELS_URL = 'https://api.openai.com/v1/models';
+const OPENROUTER_CHAT_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 const CH_GET_STATUS = 'settings:api-key:get-status';
 const CH_GET_MASKED = 'settings:api-key:get-masked';
@@ -37,6 +40,10 @@ const CH_OAI_GET_STATUS = 'settings:openai-key:get-status';
 const CH_OAI_SAVE = 'settings:openai-key:save';
 const CH_OAI_TEST = 'settings:openai-key:test';
 const CH_OAI_DELETE = 'settings:openai-key:delete';
+const CH_OR_GET_STATUS = 'settings:openrouter-key:get-status';
+const CH_OR_SAVE = 'settings:openrouter-key:save';
+const CH_OR_TEST = 'settings:openrouter-key:test';
+const CH_OR_DELETE = 'settings:openrouter-key:delete';
 const CH_CODEX_LOGOUT = 'settings:codex:logout';
 const CH_CC_LOGIN = 'settings:claude-code:login';
 const CH_CC_LOGOUT = 'settings:claude-code:logout';
@@ -195,6 +202,17 @@ export interface OpenAiKeyStatus {
   masked?: string;
 }
 
+export interface OpenRouterKeyStatus {
+  present: boolean;
+  masked?: string;
+  model?: string;
+}
+
+interface OpenRouterCredentialPayload {
+  key?: unknown;
+  model?: unknown;
+}
+
 async function handleOpenAiGetStatus(): Promise<OpenAiKeyStatus> {
   const { openai } = await getCredentialStatus();
   if (openai.present) return { present: true, masked: openai.masked };
@@ -241,6 +259,76 @@ async function handleOpenAiTest(
 async function handleOpenAiDelete(): Promise<void> {
   mainLogger.info('apiKeyIpc.openai.delete');
   await deleteOpenAIKey();
+}
+
+function validateOpenRouterPayload(payload: unknown): { key: string; model: string } {
+  if (!payload || typeof payload !== 'object') throw new Error('payload must be an object');
+  const raw = payload as OpenRouterCredentialPayload;
+  const key = assertString(raw.key, 'key', 500).trim();
+  const model = assertString(raw.model, 'model', 200).trim();
+  if (!key) throw new Error('key is required');
+  if (!model) throw new Error('model is required');
+  return { key, model };
+}
+
+async function handleOpenRouterGetStatus(): Promise<OpenRouterKeyStatus> {
+  const { openrouter } = await getCredentialStatus();
+  if (openrouter.present) return { present: true, masked: openrouter.masked, model: openrouter.model };
+  return { present: false };
+}
+
+async function handleOpenRouterSave(
+  _e: Electron.IpcMainInvokeEvent,
+  payload: unknown,
+): Promise<void> {
+  const { key, model } = validateOpenRouterPayload(payload);
+  mainLogger.info('apiKeyIpc.openrouter.save', { keyLength: key.length, model });
+  await saveOpenRouterCredentials(key, model);
+}
+
+async function handleOpenRouterTest(
+  _e: Electron.IpcMainInvokeEvent,
+  payload: unknown,
+): Promise<{ success: boolean; error?: string }> {
+  const { key, model } = validateOpenRouterPayload(payload);
+  mainLogger.info('apiKeyIpc.openrouter.test', { keyLength: key.length, model });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), TEST_TIMEOUT_MS);
+  try {
+    const response = await fetch(OPENROUTER_CHAT_URL, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        authorization: `Bearer ${key}`,
+        'content-type': 'application/json',
+        'x-title': 'Browser Use Desktop',
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: 'user', content: 'ping' }],
+        max_tokens: 1,
+      }),
+    });
+    clearTimeout(timeoutId);
+    if (response.ok) return { success: true };
+    let errorMsg = `HTTP ${response.status}`;
+    try {
+      const body = (await response.json()) as { error?: { message?: string } };
+      if (body?.error?.message) errorMsg = body.error.message;
+    } catch { /* ignore */ }
+    mainLogger.warn('apiKeyIpc.openrouter.test.failed', { status: response.status, error: errorMsg });
+    return { success: false, error: errorMsg };
+  } catch (err) {
+    clearTimeout(timeoutId);
+    const msg = (err as Error).message ?? 'Network error';
+    mainLogger.warn('apiKeyIpc.openrouter.test.exception', { error: msg });
+    return { success: false, error: msg };
+  }
+}
+
+async function handleOpenRouterDelete(): Promise<void> {
+  mainLogger.info('apiKeyIpc.openrouter.delete');
+  await deleteOpenRouterCredentials();
 }
 
 /**
@@ -307,9 +395,12 @@ export function registerApiKeyHandlers(): void {
   ipcMain.handle(CH_OAI_SAVE, handleOpenAiSave);
   ipcMain.handle(CH_OAI_TEST, handleOpenAiTest);
   ipcMain.handle(CH_OAI_DELETE, handleOpenAiDelete);
+  ipcMain.handle(CH_OR_GET_STATUS, handleOpenRouterGetStatus);
+  ipcMain.handle(CH_OR_SAVE, handleOpenRouterSave);
+  ipcMain.handle(CH_OR_TEST, handleOpenRouterTest);
+  ipcMain.handle(CH_OR_DELETE, handleOpenRouterDelete);
   ipcMain.handle(CH_CODEX_LOGOUT, handleCodexLogout);
   ipcMain.handle(CH_CC_LOGIN, handleClaudeCodeLogin);
   ipcMain.handle(CH_CC_LOGOUT, handleClaudeCodeLogout);
   mainLogger.info('apiKeyIpc.register.ok');
 }
-

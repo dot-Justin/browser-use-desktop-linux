@@ -214,6 +214,13 @@ interface ElectronSettingsOpenAiKeyAPI {
   delete: () => Promise<void>;
 }
 
+interface ElectronSettingsOpenRouterKeyAPI {
+  getStatus: () => Promise<{ present: boolean; masked?: string; model?: string }>;
+  save: (key: string, model: string) => Promise<void>;
+  test: (key: string, model: string) => Promise<{ success: boolean; error?: string }>;
+  delete: () => Promise<void>;
+}
+
 interface ElectronSettingsCodexAPI {
   status: () => Promise<{
     id: string;
@@ -229,6 +236,7 @@ interface ElectronSettingsAPI {
   apiKey: ElectronSettingsApiKeyAPI;
   claudeCode?: ElectronSettingsClaudeCodeAPI;
   openaiKey?: ElectronSettingsOpenAiKeyAPI;
+  openrouterKey?: ElectronSettingsOpenRouterKeyAPI;
   codex?: ElectronSettingsCodexAPI;
 }
 

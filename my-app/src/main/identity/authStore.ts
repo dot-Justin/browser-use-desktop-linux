@@ -63,10 +63,12 @@ interface Credentials {
   authMode: AuthMode | null;
   anthropicApiKey: string | null;
   openaiApiKey: string | null;
+  openrouterApiKey: string | null;
+  openrouterModel: string | null;
 }
 
 function emptyCredentials(): Credentials {
-  return { authMode: null, anthropicApiKey: null, openaiApiKey: null };
+  return { authMode: null, anthropicApiKey: null, openaiApiKey: null, openrouterApiKey: null, openrouterModel: null };
 }
 
 // In-memory cache. Populated on first read; mutated by save/clear functions
@@ -96,6 +98,8 @@ async function getAll(): Promise<Credentials> {
             authMode: parsed.authMode === 'apiKey' || parsed.authMode === 'claudeCode' ? parsed.authMode : null,
             anthropicApiKey: parsed.anthropicApiKey ?? null,
             openaiApiKey: parsed.openaiApiKey ?? null,
+            openrouterApiKey: parsed.openrouterApiKey ?? null,
+            openrouterModel: parsed.openrouterModel ?? null,
           };
           return cached;
         } catch (err) {
@@ -115,6 +119,8 @@ async function getAll(): Promise<Credentials> {
         authMode: authModeRaw === 'apiKey' || authModeRaw === 'claudeCode' ? authModeRaw : null,
         anthropicApiKey: apiKeyRaw ?? null,
         openaiApiKey: openaiRaw ?? null,
+        openrouterApiKey: null,
+        openrouterModel: null,
       };
       const hasLegacyData =
         cached.authMode !== null ||
@@ -203,6 +209,30 @@ export async function deleteOpenAIKey(): Promise<void> {
   mainLogger.info('authStore.deleteOpenAIKey.ok');
 }
 
+export async function saveOpenRouterCredentials(key: string, model: string): Promise<void> {
+  const c = await getAll();
+  c.openrouterApiKey = key;
+  c.openrouterModel = model;
+  await persistCache();
+  mainLogger.info('authStore.saveOpenRouterCredentials.ok', { model });
+}
+
+export async function loadOpenRouterKey(): Promise<string | null> {
+  return (await getAll()).openrouterApiKey;
+}
+
+export async function loadOpenRouterModel(): Promise<string | null> {
+  return (await getAll()).openrouterModel;
+}
+
+export async function deleteOpenRouterCredentials(): Promise<void> {
+  const c = await getAll();
+  c.openrouterApiKey = null;
+  c.openrouterModel = null;
+  await persistCache();
+  mainLogger.info('authStore.deleteOpenRouterCredentials.ok');
+}
+
 /**
  * Mark the user's choice to use Claude Code subscription. We don't copy the
  * CLI's OAuth tokens into our keychain — the agent spawns `claude` directly
@@ -257,6 +287,7 @@ export interface CredentialStatus {
     | { type: 'apiKey'; masked: string }
     | { type: 'none' };
   openai: { present: boolean; masked?: string };
+  openrouter: { present: boolean; masked?: string; model?: string };
 }
 
 function maskKey(key: string): string {
@@ -293,7 +324,10 @@ export async function getCredentialStatus(): Promise<CredentialStatus> {
   const openai: CredentialStatus['openai'] = c.openaiApiKey
     ? { present: true, masked: maskKey(c.openaiApiKey) }
     : { present: false };
-  return { anthropic, openai };
+  const openrouter: CredentialStatus['openrouter'] = c.openrouterApiKey
+    ? { present: true, masked: maskKey(c.openrouterApiKey), model: c.openrouterModel ?? undefined }
+    : { present: false };
+  return { anthropic, openai, openrouter };
 }
 
 /**

@@ -3614,6 +3614,12 @@ button:focus:not(:focus-visible) {
   color: var(--color-status-error);
 }
 
+.conn-card__api-key-note {
+  flex-basis: 100%;
+  font-size: var(--font-size-xs);
+  color: var(--color-fg-tertiary);
+}
+
 /* ----------------------------------------------------------------------------
    COMMAND HINTS — persistent bottom bar showing per-screen keyboard commands
 ---------------------------------------------------------------------------- */
@@ -4483,4 +4489,3 @@ button:focus:not(:focus-visible) {
   font-size: 12px;
   align-self: flex-start;
 }
-

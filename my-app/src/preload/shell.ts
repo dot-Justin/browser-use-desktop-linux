@@ -78,6 +78,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
         ipcRenderer.invoke('settings:openai-key:test', key),
       delete: (): Promise<void> => ipcRenderer.invoke('settings:openai-key:delete'),
     },
+    openrouterKey: {
+      getStatus: (): Promise<{ present: boolean; masked?: string; model?: string }> =>
+        ipcRenderer.invoke('settings:openrouter-key:get-status'),
+      save: (key: string, model: string): Promise<void> =>
+        ipcRenderer.invoke('settings:openrouter-key:save', { key, model }),
+      test: (key: string, model: string): Promise<{ success: boolean; error?: string }> =>
+        ipcRenderer.invoke('settings:openrouter-key:test', { key, model }),
+      delete: (): Promise<void> => ipcRenderer.invoke('settings:openrouter-key:delete'),
+    },
     codex: {
       status: (): Promise<{
         id: string;

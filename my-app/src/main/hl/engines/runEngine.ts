@@ -11,7 +11,13 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { engineLogger } from '../../logger';
-import { resolveAuth, loadOpenAIKey, loadClaudeSubscriptionType } from '../../identity/authStore';
+import {
+  resolveAuth,
+  loadOpenAIKey,
+  loadClaudeSubscriptionType,
+  loadOpenRouterKey,
+  loadOpenRouterModel,
+} from '../../identity/authStore';
 import { helpersPath, toolsPath, skillPath } from '../harness';
 import { get as getAdapter } from './registry';
 import type {
@@ -109,6 +115,11 @@ export async function runEngine(opts: RunEngineOptions): Promise<void> {
     if (adapter.id === 'codex') {
       const k = await loadOpenAIKey();
       if (k) savedApiKey = k;
+      cliAuthed = (await adapter.probeAuthed()).authed;
+    } else if (adapter.id === 'openrouter') {
+      const orKey = await loadOpenRouterKey();
+      const orModel = await loadOpenRouterModel();
+      if (orKey) savedApiKey = `${orKey}\n${orModel ?? ''}`;
       cliAuthed = (await adapter.probeAuthed()).authed;
     } else {
       const auth = await resolveAuth();

@@ -35,6 +35,39 @@ const IS_MAC = process.platform === 'darwin';
 const SHOULD_SIGN = IS_MAC && !SKIP_SIGNING && SIGNING_IDENTITY !== '';
 const WINDOWS_ICON_PATH = path.resolve(__dirname, 'assets/icon.ico');
 
+function findOpenRouterShimResource(dir: string): string | null {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isFile() && entry.name === 'shim.js') {
+      const parent = path.basename(path.dirname(fullPath)).toLowerCase();
+      if (parent === 'resources') return fullPath;
+    }
+    if (entry.isDirectory()) {
+      const found = findOpenRouterShimResource(fullPath);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function copyOpenRouterShimResource(
+  buildPath: string,
+  _electronVersion: string,
+  _platform: string,
+  _arch: string,
+  callback: (err?: Error | null) => void,
+): void {
+  try {
+    const shimPath = findOpenRouterShimResource(buildPath);
+    if (shimPath) {
+      fs.copyFileSync(shimPath, path.join(path.dirname(shimPath), 'openrouter-shim.js'));
+    }
+    callback();
+  } catch (err) {
+    callback(err as Error);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Forge configuration
 // ---------------------------------------------------------------------------
@@ -42,6 +75,8 @@ const WINDOWS_ICON_PATH = path.resolve(__dirname, 'assets/icon.ico');
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
+    extraResource: ['src/main/hl/engines/openrouter/shim.js'],
+    afterCopyExtraResources: [copyOpenRouterShimResource],
     // `productName` was removed from ForgePackagerOptions in newer
     // @electron/packager; the field is now `name`. The runtime semantics
     // are identical: the bundled .app/.exe will be named after this.
