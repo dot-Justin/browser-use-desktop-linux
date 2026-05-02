@@ -8,5 +8,5 @@ Terminal=false
 Type=Application
 Icon=browser-use
 Categories=Utility;Development;
-StartupNotify=true
-StartupWMClass=browser-use-desktop
+StartupNotify=false
+StartupWMClass=electron
