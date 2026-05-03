@@ -1,5 +1,7 @@
 <img width="1456" height="484" alt="desktop-app-banner" src="https://github.com/user-attachments/assets/550ca16a-5a61-4ded-92f0-a30421870223" />
 
+## Archived as of 05/02/2026 due to native Linux support from upstream.
+
 # Browser Use Desktop App — Linux Fork
 
 > Run a team of browser agents on your desktop. Forked from [browser-use/desktop-app](https://github.com/browser-use/desktop-app) with Linux support.
